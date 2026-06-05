@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartão Fidelidade Seguro</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; background-color: #f4f4f9; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input, button { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-size: 16px; margin-top: 15px; }
+        button:hover { background-color: #0056b3; }
+        button.validate { background-color: #28a745; }
+        button.validate:hover { background-color: #218838; }
+        #output { background: #2d2d2d; color: #00ff00; padding: 15px; border-radius: 4px; overflow-x: auto; font-family: monospace; white-space: pre-wrap; display: none; }
+        .status { padding: 10px; border-radius: 4px; margin-top: 10px; font-weight: bold; display: none; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; font-size: 0.9em; margin-bottom: 15px;}
+    </style>
+</head>
+<body>
+
+    <div class="warning">
+        ⚠️ <strong>Atenção:</strong> Guarde sua "Chave Secreta" em um local seguro. Se você perdê-la, não conseguirá validar os cartões antigos. Nunca compartilhe essa chave com os clientes.
+    </div>
+
+    <!-- GERADOR -->
+    <div class="card">
+        <h2>📝 Gerar / Atualizar Cartão</h2>
+        <label>Chave Secreta (Sua senha mestra):</label>
+        <input type="password" id="secretKey" placeholder="Ex: MinhaLojaSecreta2024!@#" value="MinhaLojaSecreta2024!@#">
+        
+        <label>Nome do Cliente:</label>
+        <input type="text" id="clientName" placeholder="Ex: João Silva">
+        
+        <label>ID do Cartão (Único):</label>
+        <input type="text" id="cardId" placeholder="Ex: CARD-001">
+        
+        <label>Pontos Atuais:</label>
+        <input type="number" id="points" value="0">
+
+        <button onclick="generateCard()">💾 Gerar Arquivo do Cartão</button>
+    </div>
+
+    <!-- VALIDADOR -->
+    <div class="card">
+        <h2>🔍 Validar e Adicionar Ponto</h2>
+        <label>Chave Secreta:</label>
+        <input type="password" id="secretKeyValidate" placeholder="Digite a mesma chave secreta" value="MinhaLojaSecreta2024!@#">
+        
+        <label>Selecione o arquivo do cliente (.json):</label>
+        <input type="file" id="fileInput" accept=".json">
+
+        <button class="validate" onclick="validateAndAddPoint()">✅ Validar e Adicionar 1 Ponto</button>
+        
+        <div id="statusMessage" class="status"></div>
+    </div>
+
+    <!-- SAÍDA -->
+    <div id="output"></div>
+
+    <script>
+        // Função para gerar a assinatura HMAC usando a API de Criptografia do navegador
+        async function generateSignature(dataStr, secret) {
+            const encoder = new TextEncoder();
+            const keyData = encoder.encode(secret);
+            
+            const cryptoKey = await crypto.subtle.importKey(
+                "raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+            );
+            
+            const signature = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(dataStr));
+            return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // GERAR CARTÃO
+        async function generateCard() {
+            const secret = document.getElementById('secretKey').value;
+            const name = document.getElementById('clientName').value;
+            const id = document.getElementById('cardId').value;
+            const points = parseInt(document.getElementById('points').value) || 0;
+
+            if (!secret || !name || !id) {
+                alert("Preencha a Chave Secreta, Nome e ID do Cartão!");
+                return;
+            }
+
+            const cardData = {
+                id: id,
+                nome: name,
+                pontos: points,
+                data_geracao: new Date().toISOString()
+            };
+
+            const dataString = JSON.stringify(cardData);
+            const signature = await generateSignature(dataString, secret);
+
+            const finalFile = {
+                dados: cardData,
+                assinatura: signature
+            };
+
+            const blob = new Blob([JSON.stringify(finalFile, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cartao_${id}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showOutput("✅ Cartão gerado e baixado com sucesso!\n\nConteúdo do arquivo:\n" + JSON.stringify(finalFile, null, 2));
+        }
+
+        // VALIDAR E ADICIONAR PONTO
+        async function validateAndAddPoint() {
+            const secret = document.getElementById('secretKeyValidate').value;
+            const fileInput = document.getElementById('fileInput');
+            const statusDiv = document.getElementById('statusMessage');
+
+            if (!secret || !fileInput.files.length) {
+                alert("Preencha a Chave Secreta e selecione um arquivo!");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = async function(e) {
+                try {
+                    const fileContent = JSON.parse(e.target.result);
+                    const dataStr = JSON.stringify(fileContent.dados);
+                    
+                    // Recalcula a assinatura com a chave secreta atual
+                    const expectedSignature = await generateSignature(dataStr, secret);
+
+                    if (fileContent.assinatura === expectedSignature) {
+                        // SUCESSO: Arquivo é legítimo
+                        const newPoints = fileContent.dados.pontos + 1;
+                        fileContent.dados.pontos = newPoints;
+                        fileContent.dados.data_atualizacao = new Date().toISOString();
+
+                        // Gera nova assinatura para os novos dados
+                        const newDataStr = JSON.stringify(fileContent.dados);
+                        const newSignature = await generateSignature(newDataStr, secret);
+                        fileContent.assinatura = newSignature;
+
+                        statusDiv.className = "status success";
+                        statusDiv.style.display = "block";
+                        statusDiv.innerHTML = `✅ CARTÃO VÁLIDO! Ponto adicionado. Total: ${newPoints} pontos.`;
+
+                        // Baixa o novo arquivo atualizado
+                        const blob = new Blob([JSON.stringify(fileContent, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = file.name; // Sobrescreve o nome do arquivo original
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+
+                        showOutput("🔄 Novo arquivo gerado com sucesso:\n" + JSON.stringify(fileContent, null, 2));
+
+                    } else {
+                        // FALHA: Arquivo foi modificado
+                        statusDiv.className = "status error";
+                        statusDiv.style.display = "block";
+                        statusDiv.innerHTML = "🚨 ALERTA DE FRAUDE! A assinatura não bate. O arquivo foi modificado pelo cliente.";
+                        showOutput("Dados recebidos:\n" + JSON.stringify(fileContent, null, 2) + "\n\nAssinatura esperada: " + expectedSignature + "\nAssinatura no arquivo: " + fileContent.assinatura);
+                    }
+                } catch (err) {
+                    statusDiv.className = "status error";
+                    statusDiv.style.display = "block";
+                    statusDiv.innerHTML = "❌ Erro ao ler o arquivo. Certifique-se de que é um arquivo .json válido.";
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function showOutput(text) {
+            const out = document.getElementById('output');
+            out.style.display = 'block';
+            out.textContent = text;
+        }
+    </script>
+</body>
+</html>
