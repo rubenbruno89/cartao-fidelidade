@@ -1,80 +1,63 @@
-# 💳 Cartão Fidelidade Digital Seguro
+# 💳 Cartão Fidelidade Digital (PDF & QR Code)
 
-Sistema simples, direto e à prova de fraudes para gerenciar cartões fidelidade de clientes. 
+Sistema profissional e à prova de fraudes para gerenciar cartões fidelidade. Emite cartões em formato **PDF** contendo **QR Codes** assinados criptograficamente.
 
-🚀 **Acesse agora a versão online:** [https://rubenbruno89.github.io/cartao-fidelidade/](https://rubenbruno89.github.io/cartao-fidelidade/)
+🚀 **Acesse a versão online:** [https://rubenbruno89.github.io/cartao-fidelidade/](https://rubenbruno89.github.io/cartao-fidelidade/)
 
 ---
 
-## 🔒 Como funciona a segurança?
+## 🔒 Segurança Anti-Fraude
+Muitos clientes têm receio de baixar arquivos `.json` ou `.txt` por medo de vírus. Este sistema resolve isso emitindo um **PDF tradicional**, que passa confiança. 
 
-O sistema utiliza **Assinatura Digital (HMAC-SHA256)** para garantir que os pontos não sejam alterados pelo cliente. 
-
-Quando você gera um cartão, o sistema cria um arquivo com os dados do cliente e uma "assinatura" matemática baseada em uma **Chave Secreta** que só você conhece. 
-
-Se o cliente tentar abrir o arquivo no Bloco de Notas e alterar os pontos (ex: mudar de 5 para 50), a assinatura deixará de bater com os dados. Ao importar o arquivo, o sistema detectará a alteração instantaneamente e bloqueará a ação, alertando sobre a tentativa de fraude.
+A segurança está no **QR Code embutido**: ele contém os dados do cliente e uma assinatura digital (HMAC-SHA256) gerada por uma Chave Secreta que só o lojista possui. Se o cliente tentar editar o PDF ou falsificar um QR Code, o sistema detecta a fraude instantaneamente na hora do escaneamento.
 
 ---
 
 ## 📖 Como usar no dia a dia
 
-### ⚠️ Passo 0: A Chave Secreta (Muito Importante!)
-A primeira vez que abrir o sistema, você verá um campo chamado **"Chave Secreta"**. 
-* Crie uma senha forte (ex: `MinhaLoja_Segredo_2024!`).
-* **ANOTE ESSA SENHA.** Se você perdê-la, não conseguirá ler os cartões antigos.
-* **NUNCA** compartilhe essa senha com os clientes.
-* *Dica: O sistema lembrará a senha apenas enquanto a aba estiver aberta. Se fechar a página, precisará digitar novamente.*
+### ⚠️ Passo 0: A Chave Secreta
+* Defina uma **Chave Secreta** forte no sistema e **NUNCA** a compartilhe.
+* Anote-a em local seguro. Se perdê-la, não conseguirá validar cartões antigos.
+
+### 🆕 1. Cadastrar Novo Cliente
+1. Preencha o Nome e ID do cliente na tela inicial.
+2. Clique em **💾 Gerar PDF do Cartão**.
+3. Um arquivo PDF estilizado com um QR Code será baixado.
+4. Envie este PDF para o cliente (WhatsApp, E-mail, etc). O cliente deve salvá-lo no celular.
+
+### ➕ 2. Adicionar Pontos (Na hora da compra)
+
+O sistema oferece **3 formas** de validar o cartão do cliente:
+
+#### 📸 Opção A: Câmera ao vivo (Presencial)
+1. Peça para o cliente abrir o PDF e mostrar o QR Code na tela do celular.
+2. Clique em **📸 Ligar Câmera para Escanear**.
+3. Aponte para o celular do cliente.
+4. O sistema lê, valida, soma 1 ponto e baixa automaticamente um novo PDF.
+5. Envie o novo PDF para o cliente guardar.
+
+#### 🖼️ Opção B: Enviar Imagem (Cliente mandou print)
+1. Se o cliente enviou um print/screenshot do cartão por WhatsApp.
+2. Clique na área **"Opção 2: Enviar Foto/Imagem do Cartão"**.
+3. Faça o upload da imagem.
+4. O sistema valida e gera o novo PDF atualizado.
+
+#### 📄 Opção C: Enviar Arquivo PDF (Recomendado à distância)
+1. Se o cliente enviou o **arquivo PDF original** pelo WhatsApp/E-mail.
+2. Clique na área **"Opção 3: Enviar arquivo PDF do Cartão"**.
+3. Selecione o PDF baixado.
+4. O sistema abre o PDF automaticamente, encontra o QR Code, valida a assinatura e gera o novo PDF com +1 ponto.
+5. Envie o novo PDF de volta para o cliente.
 
 ---
 
-### 🆕 1. Cadastrar um Novo Cliente
-Quando um cliente pedir um cartão fidelidade pela primeira vez:
-1. Acesse o sistema: [https://rubenbruno89.github.io/cartao-fidelidade/](https://rubenbruno89.github.io/cartao-fidelidade/)
-2. Digite sua **Chave Secreta**.
-3. Preencha o **Nome do Cliente**.
-4. Crie um **ID do Cartão** (pode ser o telefone do cliente, CPF ou um número sequencial como `001`).
-5. Deixe os **Pontos Atuais** em `0`.
-6. Clique em **💾 Gerar Arquivo do Cartão**.
-7. Um arquivo `.json` será baixado. **Envie este arquivo para o cliente** (por WhatsApp, E-mail, etc).
+## 🛠️ Tecnologias
+* **jsPDF**: Geração dos cartões em PDF.
+* **qrcode-generator**: Criação dos QR Codes de segurança.
+* **html5-qrcode**: Leitura dos códigos via câmera ou upload de imagens.
+* **PDF.js (Mozilla)**: Renderização de PDFs para leitura do QR Code embutido.
+* **Web Crypto API**: Assinatura HMAC-SHA256 (Nativo do navegador).
 
 ---
 
-### ➕ 2. O cliente comprou! (Adicionar Pontos)
-Quando o cliente for à loja e precisar pontuar:
-1. Peça para o cliente **enviar o arquivo `.json`** do cartão dele para você (pelo WhatsApp, por exemplo).
-2. Salve o arquivo no seu computador ou celular.
-3. No sistema, vá até a seção **🔍 Validar e Adicionar Ponto**.
-4. Digite sua **Chave Secreta**.
-5. Clique em "Escolher arquivo" e selecione o arquivo `.json` que o cliente enviou.
-6. Clique em **✅ Validar e Adicionar 1 Ponto**.
-
-**O que vai acontecer?**
-* ✅ **Se o arquivo for original:** O sistema mostrará uma mensagem verde de sucesso, adicionará +1 ponto automaticamente e baixará um **novo arquivo atualizado**. Você deve enviar este novo arquivo de volta para o cliente substituir o antigo.
-* 🚨 **Se o cliente tentou fraudar:** O sistema mostrará uma mensagem vermelha de **ALERTA DE FRAUDE**. O arquivo foi adulterado. Neste caso, não adicione pontos e chame a atenção do cliente.
-
----
-
-## 💻 Rodando Localmente (Sem Internet)
-Como o sistema é feito apenas em HTML e JavaScript, você não precisa de internet para usá-lo após o primeiro acesso.
-1. Acesse o sistema online.
-2. Clique com o botão direito na página e selecione "Salvar como..." (ou "View Page Source" e salve como `.html`).
-3. Salve o arquivo no seu computador ou celular.
-4. Basta dar dois cliques no arquivo para abrir o sistema no seu navegador, mesmo offline.
-
----
-
-## 🛠️ Tecnologias Utilizadas
-* HTML5 / CSS3
-* JavaScript (Vanilla)
-* Web Crypto API (Para geração do HMAC-SHA256)
-
----
-
-## ⚠️ Avisos de Segurança
-* **Backup:** Faça backups periódicos dos arquivos `.json` dos seus clientes.
-* **Sigilo:** A segurança do sistema depende 100% da sua Chave Secreta. Mantenha-a em sigilo.
-* **Alteração de Chave:** Se você decidir mudar a Chave Secreta no futuro, todos os cartões antigos gerados com a chave anterior se tornarão inválidos. Você terá que gerar novos cartões para todos os clientes.
-
----
-
-Desenvolvido para facilitar a gestão de pequenos e médios negócios.
+Desenvolvido para modernizar a fidelidade de pequenos e médios negócios com segurança de nível bancário, sem a complexidade de servidores.
