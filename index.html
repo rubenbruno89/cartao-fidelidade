@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartão Fidelidade Digital (PDF & QR Code)</title>
+    <!-- Bibliotecas via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; color: #333; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; border: 1px solid #e0e0e0; }
+        h2 { color: #2c3e50; margin-top: 0; border-bottom: 3px solid #3498db; padding-bottom: 10px; display: inline-block; }
+        label { display: block; margin-top: 15px; font-weight: 600; color: #555; }
+        input, button { width: 100%; padding: 12px; margin-top: 8px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { background-color: #3498db; color: white; border: none; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 20px; transition: 0.3s; }
+        button:hover { background-color: #2980b9; transform: translateY(-1px); }
+        button.validate { background-color: #2ecc71; }
+        button.validate:hover { background-color: #27ae60; }
+        button.stop { background-color: #e74c3c; margin-top: 10px; display: none; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.95em; }
+        #reader { width: 100%; margin-top: 15px; border-radius: 8px; display: none; border: 2px dashed #2ecc71; padding: 10px; background: #f8f9fa;}
+        .status { padding: 15px; border-radius: 8px; margin-top: 20px; font-weight: bold; text-align: center; display: none; font-size: 1.1em; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .upload-area { border: 2px dashed #ccc; border-radius: 8px; padding: 20px; text-align: center; background: #fafafa; margin-top: 10px; cursor: pointer;}
+        .upload-area:hover { background: #f0f0f0; border-color: #3498db; }
+        .file-input { display: none; }
+        .section-divider { margin: 25px 0 15px 0; border-top: 1px dashed #ddd; padding-top: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="warning">
+        ⚠️ <strong>Atenção:</strong> Defina uma <strong>Chave Secreta</strong> forte e guarde em um local seguro. Se você perdê-la, não conseguirá validar os cartões antigos. Nunca compartilhe essa chave com os clientes.
+    </div>
+
+    <!-- GERADOR DE PDF -->
+    <div class="card">
+        <h2>📝 Gerar Cartão (PDF)</h2>
+        <label>Chave Secreta (Sua Senha Mestra):</label>
+        <input type="password" id="secretKey" placeholder="Ex: MinhaLojaSecreta2024!@#" value="MinhaLojaSecreta2024!@#">
+        
+        <label>Nome do Cliente:</label>
+        <input type="text" id="clientName" placeholder="Ex: João Silva">
+        
+        <label>ID do Cartão (Único):</label>
+        <input type="text" id="cardId" placeholder="Ex: CARD-001">
+        
+        <label>Pontos Atuais:</label>
+        <input type="number" id="points" value="0">
+
+        <button onclick="generatePDF()">💾 Gerar PDF do Cartão</button>
+    </div>
+
+    <!-- VALIDADOR -->
+    <div class="card">
+        <h2>✅ Validar e Adicionar Ponto</h2>
+        <label>Chave Secreta:</label>
+        <input type="password" id="secretKeyValidate" placeholder="Digite a mesma chave secreta" value="MinhaLojaSecreta2024!@#">
+        
+        <div class="section-divider">
+            <label style="color: #2c3e50; font-size: 1.1em;">Opção 1: Escanear QR Code (Câmera ao vivo)</label>
+            <button class="validate" onclick="startScanner()">📸 Ligar Câmera para Escanear</button>
+            <div id="reader"></div>
+            <button class="stop" id="stopBtn" onclick="stopScanner()">⏹️ Desligar Câmera</button>
+        </div>
+
+        <div class="section-divider">
+            <label style="color: #2c3e50; font-size: 1.1em;">Opção 2: Enviar Foto/Imagem do Cartão</label>
+            <div class="upload-area" onclick="document.getElementById('imageInput').click()">
+                🖼️ Clique para enviar uma imagem (JPG/PNG) do cartão
+                <input type="file" id="imageInput" class="file-input" accept="image/*" onchange="scanImageFile(event)">
+            </div>
+        </div>
+
+        <div class="section-divider">
+            <label style="color: #2c3e50; font-size: 1.1em;">Opção 3: Enviar arquivo PDF do Cartão</label>
+            <div class="upload-area" onclick="document.getElementById('pdfInput').click()">
+                📄 Clique para enviar o arquivo PDF original do cliente
+                <input type="file" id="pdfInput" class="file-input" accept=".pdf" onchange="scanPDFFile(event)">
+            </div>
+        </div>
+
+        <div id="statusMessage" class="status"></div>
+    </div>
+
+    <script>
+        // Configurar PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        const { jsPDF } = window.jspdf;
+        let html5QrCode;
+
+        // --- CRIPTOGRAFIA ---
+        async function generateSignature(dataStr, secret) {
+            const encoder = new TextEncoder();
+            const keyData = encoder.encode(secret);
+            const cryptoKey = await crypto.subtle.importKey(
+                "raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+            );
+            const signature = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(dataStr));
+            return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function utf8ToBase64(str) {
+            return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+                return String.fromCharCode('0x' + p1);
+            }));
+        }
+
+        function base64ToUtf8(str) {
+            return decodeURIComponent(Array.prototype.map.call(atob(str), function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+        }
+
+        // --- GERAR PDF ---
+        async function generatePDF(customPoints = null) {
+            const secret = document.getElementById('secretKey').value || document.getElementById('secretKeyValidate').value;
+            const name = document.getElementById('clientName').value || 'Cliente';
+            const id = document.getElementById('cardId').value || 'ID-' + Date.now();
+            const points = customPoints !== null ? customPoints : (parseInt(document.getElementById('points').value) || 0);
+
+            if (!secret) { alert("Preencha a Chave Secreta!"); return; }
+
+            const cardData = {
+                id: id,
+                nome: name,
+                pontos: points,
+                data_geracao: new Date().toISOString()
+            };
+
+            const dataString = JSON.stringify(cardData);
+            const signature = await generateSignature(dataString, secret);
+
+            const payload = { dados: cardData, assinatura: signature };
+            const safeString = utf8ToBase64(JSON.stringify(payload));
+
+            // QR Code com correção de erro alta e tamanho de módulo maior
+            const qr = qrcode(0, 'H'); 
+            qr.addData(safeString);
+            qr.make();
+            const qrImgData = qr.createDataURL(12);
+
+            const doc = new jsPDF({
+                orientation: "landscape",
+                unit: "mm",
+                format: "a6"
+            });
+
+            // Fundo azul do cartão
+            doc.setFillColor(41, 128, 185);
+            doc.rect(0, 0, 148, 105, 'F');
+            
+            // Textos
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(22);
+            doc.text("CARTÃO FIDELIDADE", 74, 20, { align: "center" });
+            
+            doc.setFontSize(14);
+            doc.text(`Cliente: ${name}`, 15, 40);
+            doc.text(`ID: ${id}`, 15, 50);
+            
+            // FUNDO DOS PONTOS (círculo ou retângulo arredondado)
+            doc.setFillColor(255, 255, 255, 0.2); // Branco semi-transparente
+            doc.circle(44, 75, 20, 'F');
+            
+            // PONTOS - Agora perfeitamente centralizado
+            doc.setFontSize(36);
+            doc.setTextColor(241, 196, 15);
+            doc.text(`${points}`, 44, 78, { align: "center" });
+            
+            doc.setFontSize(12);
+            doc.text("PONTOS", 44, 90, { align: "center" });
+
+            // Fundo branco para o QR Code
+            doc.setFillColor(255, 255, 255);
+            doc.rect(90, 25, 55, 55, 'F');
+            
+            // QR Code maior com margem de silêncio
+            doc.addImage(qrImgData, 'PNG', 92.5, 27.5, 50, 50);
+
+            const filename = `cartao_${id}_${name.replace(/\s/g, '_')}.pdf`;
+            doc.save(filename);
+            
+            showStatus(`✅ PDF gerado com sucesso! Envie o arquivo "${filename}" para o cliente.`, 'success');
+        }
+
+        // --- SCANNER CÂMERA ---
+        function startScanner() {
+            const readerDiv = document.getElementById('reader');
+            const stopBtn = document.getElementById('stopBtn');
+            
+            if (html5QrCode && html5QrCode.isScanning) {
+                stopScanner();
+                return;
+            }
+
+            html5QrCode = new Html5Qrcode("reader");
+            readerDiv.style.display = 'block';
+            stopBtn.style.display = 'block';
+
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                decodedText => {
+                    processarLeitura(decodedText);
+                    stopScanner();
+                },
+                errorMessage => { }
+            ).catch(err => {
+                showStatus("❌ Erro ao acessar a câmera. Verifique as permissões do navegador.", 'error');
+                stopScanner();
+            });
+        }
+
+        function stopScanner() {
+            const readerDiv = document.getElementById('reader');
+            const stopBtn = document.getElementById('stopBtn');
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(ignore => {
+                    readerDiv.style.display = 'none';
+                    stopBtn.style.display = 'none';
+                }).catch(err => console.log(err));
+            }
+        }
+
+        // --- SCANNER IMAGEM ---
+        function scanImageFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            showStatus("⏳ Lendo imagem...", 'success');
+            
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    processarLeitura(code.data);
+                } else {
+                    showStatus("❌ Nenhum QR Code válido encontrado na imagem.", 'error');
+                }
+            };
+            img.src = URL.createObjectURL(file);
+        }
+
+        // --- SCANNER PDF ---
+        async function scanPDFFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showStatus("⏳ Abrindo PDF e procurando QR Code...", 'success');
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const page = await pdf.getPage(1);
+                
+                const scale = 4.0; 
+                const viewport = page.getViewport({ scale: scale });
+                
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+
+                context.imageSmoothingEnabled = false;
+
+                await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // Binarizar a imagem
+                const data = imageData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    const value = brightness > 128 ? 255 : 0;
+                    data[i] = value;
+                    data[i + 1] = value;
+                    data[i + 2] = value;
+                }
+                
+                context.putImageData(imageData, 0, 0);
+                
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    processarLeitura(code.data);
+                } else {
+                    canvas.toBlob(async (blob) => {
+                        if (!blob) {
+                            showStatus("❌ Erro ao processar a imagem do PDF.", 'error');
+                            return;
+                        }
+                        const fakeFile = new File([blob], "pdf_page.png", { type: "image/png" });
+                        
+                        const tempReaderId = 'temp-reader-pdf-' + Date.now();
+                        let tempDiv = document.createElement('div');
+                        tempDiv.id = tempReaderId;
+                        tempDiv.style.display = 'none';
+                        document.body.appendChild(tempDiv);
+                        
+                        const qrReader = new Html5Qrcode(tempReaderId);
+                        
+                        try {
+                            const decodedText = await qrReader.scanFile(fakeFile, false); 
+                            processarLeitura(decodedText);
+                        } catch (err) {
+                            console.error("Erro no scan:", err);
+                            showStatus("❌ Nenhum QR Code encontrado no PDF. Tente a Opção 1 (Câmera) ou Opção 2 (Imagem).", 'error');
+                        } finally {
+                            qrReader.clear();
+                            tempDiv.remove();
+                        }
+                    }, 'image/png', 1.0);
+                }
+
+            } catch (err) {
+                console.error("Erro geral:", err);
+                showStatus("❌ Erro ao processar o PDF. Arquivo inválido ou corrompido.", 'error');
+            }
+            
+            event.target.value = '';
+        }
+
+        // --- PROCESSAR LEITURA ---
+        async function processarLeitura(decodedText) {
+            const secret = document.getElementById('secretKeyValidate').value;
+            if (!secret) {
+                showStatus("❌ Digite a Chave Secreta antes de validar!", 'error');
+                return;
+            }
+
+            try {
+                const jsonString = base64ToUtf8(decodedText);
+                const payload = JSON.parse(jsonString);
+                
+                const dataStr = JSON.stringify(payload.dados);
+                const expectedSignature = await generateSignature(dataStr, secret);
+
+                if (payload.assinatura === expectedSignature) {
+                    const newPoints = payload.dados.pontos + 1;
+                    showStatus(`✅ CARTÃO VÁLIDO! Ponto adicionado. Novo total: ${newPoints} pontos. Gerando novo PDF...`, 'success');
+                    
+                    document.getElementById('clientName').value = payload.dados.nome;
+                    document.getElementById('cardId').value = payload.dados.id;
+                    document.getElementById('points').value = newPoints;
+                    
+                    setTimeout(() => generatePDF(newPoints), 1000);
+                    
+                } else {
+                    showStatus("🚨 ALERTA DE FRAUDE! A assinatura não bate. O QR Code foi adulterado.", 'error');
+                }
+            } catch (err) {
+                showStatus("❌ Erro ao processar o QR Code. Dados corrompidos.", 'error');
+            }
+        }
+
+        function showStatus(msg, type) {
+            const el = document.getElementById('statusMessage');
+            el.innerHTML = msg;
+            el.className = `status ${type}`;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 8000);
+        }
+    </script>
+</body>
+</html>
